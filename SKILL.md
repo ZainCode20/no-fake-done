@@ -2,16 +2,27 @@
 name: slop-guard
 description: >-
   Pre-completion diff and test-integrity auditor for AI coding agents.
-  Use before declaring any coding task complete, or when asked to audit
+  Use before declaring any code-editing task complete, or when asked to audit
   AI-generated changes for placeholder stubs, weakened or skipped tests
-  ("test theater"), debug leftovers, swallowed errors, and scope creep.
+  ("test theater"), hardcoded secrets, swallowed errors, type/lint suppressions,
+  and scope creep. Do not activate for pure Q&A or documentation-only edits.
 ---
 
 # Slop Guard
 
-Run this skill **before** reporting that a coding task is complete. It pairs a
-deterministic `git diff` audit script with a concise semantic checklist so
-broken stubs, weakened tests, and unrequested edits never slip through.
+Run this skill **before** declaring a code-editing task complete. It pairs a
+deterministic diff auditor ([audit_diff.py](./scripts/audit_diff.py)) with a
+short semantic checklist ([checklist.md](./references/checklist.md)) so stubs,
+weakened tests, and unrequested edits never slip into the final response.
+
+---
+
+## When to Use (and When Not to)
+
+- **Use** after modifying or creating source/test files, right before running
+  your final summary for the user.
+- **Skip** for pure conceptual Q&A, read-only codebase research, or
+  documentation-only edits (`.md`, `.txt`, `.rst` are excluded by default).
 
 ---
 
@@ -19,40 +30,55 @@ broken stubs, weakened tests, and unrequested edits never slip through.
 
 ### 1. Run the Deterministic Diff Audit
 
-Run `scripts/audit_diff.py` from the repository root (works on Windows, macOS,
-and Linux with Python 3.10+ and zero external dependencies):
+Execute [audit_diff.py](./scripts/audit_diff.py) from the **skill directory**,
+pointing `--repo` at the user's git repository (Python 3.10+, zero external
+dependencies):
 
 ```bash
-python scripts/audit_diff.py
+python <skill_dir>/scripts/audit_diff.py --repo <project_root> --json
 ```
 
-Useful options:
-- `--base main` — compare against a base branch or commit instead of `HEAD`.
-- `--json` — output structured JSON for automated parsing.
-- `--strict` — exit non-zero on `WARNING` findings as well as `CRITICAL`.
-- `--diff-file path/to/changes.diff` — audit a saved patch file.
+Useful flags:
+- `--base main` — audit against a base branch or commit instead of `HEAD`.
+- `--strict` — fail with exit code `2` on `WARNING` findings as well as `CRITICAL`.
+- `--no-untracked` — skip scanning newly created untracked files.
+- `--exclude "generated/*"` — exclude additional file globs (repeatable).
+- `--diff-file path/to/changes.diff` — audit a saved unified patch.
 
-### 2. Resolve All `CRITICAL` Findings
+Exit codes: `0` = clean, `1` = `CRITICAL` findings, `2` = `WARNING` with
+`--strict`, `3` = git/IO error.
 
-Do **not** report the task as complete while any `CRITICAL` finding remains:
+### 2. Resolve Every `CRITICAL` Finding
+
+Never report a task as complete while any `CRITICAL` finding remains:
 - **Test Theater (`test-skip`, `trivial-assertion`, `removed-assertions`):**
-  Restore deleted assertions, remove skip decorators, and replace trivial
-  assertions with real behavioral checks.
+  Restore deleted assertions, remove skip decorators, and replace tautologies
+  (`assert True`, `expect(true).toBe(true)`) with real behavioral checks.
 - **Placeholder Stubs (`placeholder-stub`):**
-  Implement the missing logic or remove dead `TODO`/`NotImplementedError` stubs.
+  Implement the missing logic or remove dead `TODO`/`FIXME`/`NotImplementedError`.
+- **Hardcoded Secrets (`hardcoded-secret`):**
+  Remove credentials/keys immediately and load them from environment variables.
 - **Debug Leftovers (`debugger-leftover`):**
-  Remove `breakpoint()`, `pdb.set_trace()`, and `debugger;` statements.
+  Remove `breakpoint()`, `pdb.set_trace()`, and `debugger;`.
 
 ### 3. Review `WARNING` Findings & Semantic Checklist
 
-Inspect any `WARNING` findings (`swallowed-error`, `debug-print`,
-`commented-code-block`). Then read [references/checklist.md](references/checklist.md)
-to verify what regex cannot catch:
-- No "adding instead of replacing" compatibility/fallback layers.
-- No partial ("80% done") implementations missing error paths.
-- No unrequested refactors outside the task scope.
+Inspect all `WARNING` findings (`swallowed-error`, `lint-type-suppression`,
+`debug-print`, `commented-code-block`). Fix unintentional issues; if a line is
+genuinely intentional (e.g., an intentional empty catch or fixture), append an
+inline suppression with a reason:
 
-### 4. Final Verification
+```python
+except KeyError:  # slop-guard: ignore -- optional cache key
+```
 
-Re-run the project's test suite and `python scripts/audit_diff.py` after your
-final edit. Report only observed test results and a clean audit.
+Then read [references/checklist.md](./references/checklist.md) to verify
+architectural integrity that regex cannot catch.
+
+### 4. Re-Run & Report
+
+After your final edit:
+1. Re-run the project's relevant test suite.
+2. Re-run `audit_diff.py` and confirm exit code `0` (`CLEAN`).
+3. Include a brief **Verification** line in your final reply stating both the
+   observed test result and `slop-guard: CLEAN`.
