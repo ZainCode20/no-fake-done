@@ -28,13 +28,13 @@ Plus a concise semantic checklist in [`references/checklist.md`](references/chec
 ### Antigravity
 Copy or clone into your workspace `.agents/skills/slop-guard/` or global `~/.gemini/config/skills/slop-guard/`:
 ```bash
-git clone https://github.com/<your-username>/slop-guard.git ~/.gemini/config/skills/slop-guard
+git clone https://github.com/ZainCode20/slop-guard.git ~/.gemini/config/skills/slop-guard
 ```
 
 ### Claude Code / Cursor / Codex
 Copy the `slop-guard` folder into your project's `.claude/skills/slop-guard/` (or global `~/.claude/skills/slop-guard/`):
 ```bash
-git clone https://github.com/<your-username>/slop-guard.git .claude/skills/slop-guard
+git clone https://github.com/ZainCode20/slop-guard.git .claude/skills/slop-guard
 ```
 
 ---
