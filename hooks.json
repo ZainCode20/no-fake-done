@@ -1,0 +1,11 @@
+{
+  "slop-guard": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python ./scripts/hook_stop.py --mode antigravity",
+        "timeout": 15
+      }
+    ]
+  }
+}

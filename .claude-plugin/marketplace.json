@@ -1,0 +1,14 @@
+{
+  "name": "slop-guard",
+  "owner": {
+    "name": "ZainCode20"
+  },
+  "plugins": [
+    {
+      "name": "slop-guard",
+      "source": "./",
+      "description": "Pre-completion git diff & test-integrity auditor skill and Stop hook for AI coding agents.",
+      "version": "2.1.0"
+    }
+  ]
+}

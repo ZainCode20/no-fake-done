@@ -34,17 +34,26 @@ Stop AI coding assistants from declaring a task *"Done!"* when their changes con
 
 ## Installation
 
-### Antigravity
-Clone into your workspace `.agents/skills/slop-guard/` or global `~/.gemini/config/skills/slop-guard/`:
+### Claude Code (1-Command Plugin + Automatic Stop Hook)
+Install directly via the Claude Code plugin marketplace—this activates both the `slop-guard` skill and the automatic **Stop hook** (`hooks/hooks.json`):
 ```bash
-git clone https://github.com/ZainCode20/slop-guard.git ~/.gemini/config/skills/slop-guard
+/plugin marketplace add ZainCode20/slop-guard
+/plugin install slop-guard
 ```
 
-### Claude Code / Cursor / Codex
-Clone into your project's `.claude/skills/slop-guard/` (or global `~/.claude/skills/slop-guard/`):
+### Antigravity (Plugin + Automatic Stop Hook)
+Clone into your workspace `.agents/plugins/slop-guard/` or global `~/.gemini/config/plugins/slop-guard/` (includes `plugin.json` and `hooks.json`):
+```bash
+git clone https://github.com/ZainCode20/slop-guard.git ~/.gemini/config/plugins/slop-guard
+```
+
+### Skill-Only Install (Cursor / Codex / Manual)
+If you only want the `SKILL.md` workflow without the automatic Stop hook:
 ```bash
 git clone https://github.com/ZainCode20/slop-guard.git .claude/skills/slop-guard
 ```
+
+> **How the Stop Hook works:** When an agent finishes a turn, [`scripts/hook_stop.py`](scripts/hook_stop.py) audits the workspace's `git diff` (and untracked new files). If any `CRITICAL` issue is found, it blocks completion once and sends the exact findings back to the agent so it fixes them automatically. Non-git folders, clean diffs, and already-continued turns pass through silently.
 
 ---
 

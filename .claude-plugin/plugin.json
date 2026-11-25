@@ -1,0 +1,20 @@
+{
+  "name": "slop-guard",
+  "version": "2.1.0",
+  "description": "Pre-completion git diff & test-integrity auditor skill and Stop hook for AI coding agents.",
+  "author": {
+    "name": "ZainCode20",
+    "url": "https://github.com/ZainCode20"
+  },
+  "homepage": "https://github.com/ZainCode20/slop-guard",
+  "repository": "https://github.com/ZainCode20/slop-guard",
+  "license": "MIT",
+  "keywords": [
+    "ai-skills",
+    "agent-skills",
+    "code-review",
+    "git-diff",
+    "testing",
+    "slop-guard"
+  ]
+}
