@@ -1,4 +1,4 @@
-"""Unit tests for slop-guard's audit_diff.py."""
+"""Unit tests for no-fake-done's audit_diff.py."""
 
 from __future__ import annotations
 
@@ -137,7 +137,7 @@ diff --git a/src/cache.py b/src/cache.py
 +++ b/src/cache.py
 @@ -1 +1,2 @@
  def get_key():
-+    # TODO: intentional fixture  # slop-guard: ignore
++    # TODO: intentional fixture  # no-fake-done: ignore
 """
         findings = audit_diff.audit_unified_diff(diff)
         self.assertEqual(findings, [])

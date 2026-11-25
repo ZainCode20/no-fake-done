@@ -44,7 +44,7 @@ TEST_FILE_RE = re.compile(
     re.IGNORECASE,
 )
 
-INLINE_IGNORE_RE = re.compile(r"slop-guard:\s*ignore\b", re.IGNORECASE)
+INLINE_IGNORE_RE = re.compile(r"(no-fake-done|slop-guard):\s*ignore\b", re.IGNORECASE)
 
 SKIP_PATTERNS = [
     re.compile(r"@pytest\.mark\.skip\b"),
@@ -481,9 +481,9 @@ def format_human_report(findings: Iterable[Finding]) -> str:
     """Format findings into a readable terminal report."""
     items = list(findings)
     if not items:
-        return "slop-guard: CLEAN (0 findings)."
+        return "no-fake-done: CLEAN (0 findings)."
 
-    lines = [f"slop-guard: {len(items)} finding(s) detected:"]
+    lines = [f"no-fake-done: {len(items)} finding(s) detected:"]
     for item in items:
         loc = f"{item.file}:{item.line}"
         lines.append(f"  [{item.severity}] ({item.rule}) {loc} - {item.message}")
@@ -520,7 +520,7 @@ def main(argv: list[str] | None = None) -> int:
                 include_untracked=not args.no_untracked,
             )
     except (OSError, RuntimeError) as exc:
-        print(f"slop-guard error: {exc}", file=sys.stderr)
+        print(f"no-fake-done error: {exc}", file=sys.stderr)
         return 3
 
     findings = audit_unified_diff(diff_text, exclude_globs=exclude_globs)

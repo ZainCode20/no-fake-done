@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stop-hook wrapper for slop-guard (supports Antigravity and Claude Code).
+"""Stop-hook wrapper for no-fake-done (supports Antigravity and Claude Code).
 
 Reads hook context JSON from stdin, audits the target git repository for
 CRITICAL AI slop findings, and blocks premature completion once per turn.
@@ -66,7 +66,7 @@ def evaluate_stop_hook(payload: dict, mode: str) -> dict:
     return {
         "decision": decision_value,
         "reason": (
-            "slop-guard detected CRITICAL issues in your diff before completion. "
+            "no-fake-done detected CRITICAL issues in your diff before completion. "
             "Fix these issues and re-run tests before finishing:\n"
             f"{report}"
         ),
@@ -74,7 +74,7 @@ def evaluate_stop_hook(payload: dict, mode: str) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="slop-guard Stop hook handler.")
+    parser = argparse.ArgumentParser(description="no-fake-done Stop hook handler.")
     parser.add_argument(
         "--mode",
         choices=("antigravity", "claude"),

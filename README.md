@@ -1,6 +1,6 @@
-# slop-guard
+# no-fake-done
 
-[![CI](https://github.com/ZainCode20/slop-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/ZainCode20/slop-guard/actions/workflows/ci.yml)
+[![CI](https://github.com/ZainCode20/no-fake-done/actions/workflows/ci.yml/badge.svg)](https://github.com/ZainCode20/no-fake-done/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](https://www.python.org/)
 
@@ -27,7 +27,7 @@ Stop AI coding assistants from declaring a task *"Done!"* when their changes con
 
 - **Scans untracked new files** automatically (so brand-new AI files with stubs/skips don't slip past `git diff`).
 - **Skips docs & lockfiles** (`.md`, `.txt`, `package-lock.json`, `pnpm-lock.yaml`, etc.) by default to avoid false positives.
-- **Inline escape hatch:** add `# slop-guard: ignore` (or `// slop-guard: ignore`) on intentionally excluded lines.
+- **Inline escape hatch:** add `# no-fake-done: ignore` (or `// no-fake-done: ignore`) on intentionally excluded lines.
 - **Semantic checklist:** pairs with [`references/checklist.md`](references/checklist.md) for catching *"adding instead of replacing"* workarounds and scope creep.
 
 ---
@@ -35,22 +35,22 @@ Stop AI coding assistants from declaring a task *"Done!"* when their changes con
 ## Installation
 
 ### Claude Code (1-Command Plugin + Automatic Stop Hook)
-Install directly via the Claude Code plugin marketplace—this activates both the `slop-guard` skill and the automatic **Stop hook** (`hooks/hooks.json`):
+Install directly via the Claude Code plugin marketplace—this activates both the `no-fake-done` skill and the automatic **Stop hook** (`hooks/hooks.json`):
 ```bash
-/plugin marketplace add ZainCode20/slop-guard
-/plugin install slop-guard
+/plugin marketplace add ZainCode20/no-fake-done
+/plugin install no-fake-done
 ```
 
 ### Antigravity (Plugin + Automatic Stop Hook)
-Clone into your workspace `.agents/plugins/slop-guard/` or global `~/.gemini/config/plugins/slop-guard/` (includes `plugin.json` and `hooks.json`):
+Clone into your workspace `.agents/plugins/no-fake-done/` or global `~/.gemini/config/plugins/no-fake-done/` (includes `plugin.json` and `hooks.json`):
 ```bash
-git clone https://github.com/ZainCode20/slop-guard.git ~/.gemini/config/plugins/slop-guard
+git clone https://github.com/ZainCode20/no-fake-done.git ~/.gemini/config/plugins/no-fake-done
 ```
 
 ### Skill-Only Install (Cursor / Codex / Manual)
 If you only want the `SKILL.md` workflow without the automatic Stop hook:
 ```bash
-git clone https://github.com/ZainCode20/slop-guard.git .claude/skills/slop-guard
+git clone https://github.com/ZainCode20/no-fake-done.git .claude/skills/no-fake-done
 ```
 
 > **How the Stop Hook works:** When an agent finishes a turn, [`scripts/hook_stop.py`](scripts/hook_stop.py) audits the workspace's `git diff` (and untracked new files). If any `CRITICAL` issue is found, it blocks completion once and sends the exact findings back to the agent so it fixes them automatically. Non-git folders, clean diffs, and already-continued turns pass through silently.

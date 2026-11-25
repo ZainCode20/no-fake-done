@@ -1,5 +1,5 @@
 ---
-name: slop-guard
+name: no-fake-done
 description: >-
   Pre-completion diff and test-integrity auditor for AI coding agents.
   Use before declaring any code-editing task complete, or when asked to audit
@@ -8,7 +8,7 @@ description: >-
   and scope creep. Do not activate for pure Q&A or documentation-only edits.
 ---
 
-# Slop Guard
+# No Fake Done
 
 Run this skill **before** declaring a code-editing task complete. It pairs a
 deterministic diff auditor ([audit_diff.py](./scripts/audit_diff.py)) with a
@@ -69,7 +69,7 @@ genuinely intentional (e.g., an intentional empty catch or fixture), append an
 inline suppression with a reason:
 
 ```python
-except KeyError:  # slop-guard: ignore -- optional cache key
+except KeyError:  # no-fake-done: ignore -- optional cache key
 ```
 
 Then read [references/checklist.md](./references/checklist.md) to verify
@@ -81,4 +81,4 @@ After your final edit:
 1. Re-run the project's relevant test suite.
 2. Re-run `audit_diff.py` and confirm exit code `0` (`CLEAN`).
 3. Include a brief **Verification** line in your final reply stating both the
-   observed test result and `slop-guard: CLEAN`.
+   observed test result and `no-fake-done: CLEAN`.

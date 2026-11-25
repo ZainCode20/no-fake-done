@@ -1,4 +1,4 @@
-"""Unit tests for slop-guard's Stop hook and plugin JSON manifests."""
+"""Unit tests for no-fake-done's Stop hook and plugin JSON manifests."""
 
 from __future__ import annotations
 

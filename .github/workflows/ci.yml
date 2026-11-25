@@ -27,6 +27,6 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
-      - name: Dogfood slop-guard on PR diff
+      - name: Dogfood no-fake-done on PR diff
         if: github.event_name == 'pull_request'
         run: python scripts/audit_diff.py --base origin/${{ github.base_ref }} --exclude "tests/*"

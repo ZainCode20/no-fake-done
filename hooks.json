@@ -1,5 +1,5 @@
 {
-  "slop-guard": {
+  "no-fake-done": {
     "Stop": [
       {
         "type": "command",
