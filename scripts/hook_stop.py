@@ -54,11 +54,36 @@ def evaluate_stop_hook(payload: dict, mode: str) -> dict:
     # so legacy TODOs already committed in large repos never block agent turns.
     repo = _resolve_repo_path(payload)
     try:
+        config = audit_diff.load_repo_config(repo)
         diff_text = audit_diff._run_git_diff(base=None, repo=repo, include_untracked=True)
     except (OSError, RuntimeError):
         return {}
 
-    findings = audit_diff.audit_unified_diff(diff_text)
+    cfg_excludes = [str(p) for p in config.get("exclude", []) if isinstance(p, str)]
+    exclude_globs = (*audit_diff.DEFAULT_EXCLUDED_GLOBS, *cfg_excludes)
+    cfg_ignored = {str(r).strip().lower() for r in config.get("ignore_rules", []) if str(r).strip()}
+    cfg_severities = (
+        {
+            str(k).strip().lower(): str(v).strip().upper()
+            for k, v in config.get("severities", {}).items()
+            if isinstance(k, str) and isinstance(v, str)
+        }
+        if isinstance(config.get("severities"), dict)
+        else {}
+    )
+
+    findings = audit_diff.audit_unified_diff(diff_text, exclude_globs=exclude_globs)
+    findings.extend(
+        audit_diff.audit_python_files_in_repo(
+            repo=repo,
+            diff_text=diff_text,
+            exclude_globs=exclude_globs,
+            full_scan=False,
+        )
+    )
+    findings = audit_diff.apply_config_rules(
+        findings, ignored_rules=cfg_ignored, severity_overrides=cfg_severities
+    )
     critical = [f for f in findings if f.severity == "CRITICAL"]
     if not critical:
         return {}

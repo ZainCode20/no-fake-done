@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="390" viewBox="0 0 840 390" role="img" aria-label="no-fake-done terminal output demo">
+  <defs>
+    <style>
+      .bg { fill: #0d1117; }
+      .bar { fill: #161b22; }
+      .border { fill: none; stroke: #30363d; stroke-width: 1.5; }
+      .txt { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; }
+      .muted { fill: #8b949e; }
+      .white { fill: #e6edf3; }
+      .cyan { fill: #58a6ff; }
+      .red { fill: #ff7b72; font-weight: 700; }
+      .yellow { fill: #d29922; font-weight: 700; }
+      .green { fill: #3fb950; font-weight: 700; }
+      .dim { fill: #7d8590; }
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="838" height="388" rx="12" class="bg"/>
+  <path d="M1,13 Q1,1 13,1 L827,1 Q839,1 839,13 L839,38 L1,38 Z" class="bar"/>
+  <rect x="1" y="1" width="838" height="388" rx="12" class="border"/>
+
+  <circle cx="22" cy="20" r="6" fill="#ff5f56"/>
+  <circle cx="42" cy="20" r="6" fill="#ffbd2e"/>
+  <circle cx="62" cy="20" r="6" fill="#27c93f"/>
+  <text x="420" y="24" text-anchor="middle" class="txt muted">no-fake-done — Pre-Completion Audit Demo</text>
+
+  <!-- Step 1: Catching slop -->
+  <text x="22" y="68" class="txt cyan">$ python scripts/audit_diff.py --repo ./my-app</text>
+  <text x="22" y="92" class="txt white">no-fake-done: 4 finding(s) across 3 file(s) [full project scan]:</text>
+  <text x="22" y="112" class="txt muted">  Summary: test-skip: 1, empty-stub-func: 1, placeholder-stub: 1, swallowed-error: 1</text>
+
+  <text x="22" y="140" class="txt"><tspan class="red">  [CRITICAL]</tspan><tspan class="white"> (test-skip) MyAppTests/LoginTests.swift:14 - Skipped or disabled test added.</tspan></text>
+  <text x="22" y="158" class="txt dim">      throw XCTSkip("flaky after refactor")</text>
+
+  <text x="22" y="184" class="txt"><tspan class="red">  [CRITICAL]</tspan><tspan class="white"> (empty-stub-func) src/billing.py:42 - Function 'refund' body is an empty pass/... stub.</tspan></text>
+  <text x="22" y="202" class="txt dim">      def refund(order_id: str) -&gt; bool:</text>
+
+  <text x="22" y="228" class="txt"><tspan class="red">  [CRITICAL]</tspan><tspan class="white"> (placeholder-stub) src/auth.ts:19 - Placeholder stub or TODO/FIXME marker added.</tspan></text>
+  <text x="22" y="246" class="txt dim">      // TODO: validate expired JWT tokens</text>
+
+  <text x="22" y="272" class="txt"><tspan class="yellow">  [WARNING]</tspan><tspan class="white">  (swallowed-error) src/sync.py:88 - Multi-line exception caught and silently swallowed.</tspan></text>
+  <text x="22" y="290" class="txt dim">      except Exception: pass</text>
+
+  <text x="22" y="314" class="txt red">  -&gt; Exit code 1 (Stop hook blocks agent until CRITICAL issues are resolved)</text>
+
+  <!-- Step 2: Clean after agent fixes -->
+  <line x1="22" y1="332" x2="818" y2="332" stroke="#21262d" stroke-width="1"/>
+  <text x="22" y="354" class="txt cyan">$ python scripts/audit_diff.py --repo ./my-app</text>
+  <text x="22" y="376" class="txt green">no-fake-done: CLEAN — scanned 3 file(s) (+214 lines) [full project scan].</text>
+</svg>

@@ -18,6 +18,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import ast
 import collections
 import fnmatch
 import json
@@ -27,7 +28,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 DEFAULT_EXCLUDED_GLOBS = (
     "*.md",
@@ -191,6 +192,228 @@ CODE_LIKE_RE = re.compile(
 MAX_FILE_BYTES = 256 * 1024
 MAX_UNTRACKED_BYTES = MAX_FILE_BYTES
 DEFAULT_MAX_FINDINGS = 50
+CONFIG_FILENAME = ".nofakedone.json"
+VALID_SEVERITIES = {"CRITICAL", "WARNING"}
+
+
+def load_repo_config(repo: Path, config_path: Path | None = None) -> dict[str, Any]:
+    """Load optional .nofakedone.json configuration from repo root or explicit path."""
+    target = config_path if config_path is not None else (repo / CONFIG_FILENAME)
+    if not target.is_file():
+        if config_path is not None:
+            raise RuntimeError(f"Config file not found: {target}")
+        return {}
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Invalid config in {target}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError(f"Config in {target} must be a JSON object.")
+    return data
+
+
+def _is_stub_only_body(body: list[ast.stmt]) -> bool:
+    """Return True if a function body contains only docstring + pass / Ellipsis (...)."""
+    stmts = list(body)
+    if (
+        stmts
+        and isinstance(stmts[0], ast.Expr)
+        and isinstance(stmts[0].value, ast.Constant)
+        and isinstance(stmts[0].value.value, str)
+    ):
+        stmts = stmts[1:]
+    if not stmts:
+        return False
+    for stmt in stmts:
+        if isinstance(stmt, ast.Pass):
+            continue
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant) and stmt.value.value is Ellipsis:
+            continue
+        return False
+    return True
+
+
+def _decorator_names(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    names: set[str] = set()
+    for dec in node.decorator_list:
+        if isinstance(dec, ast.Name):
+            names.add(dec.id)
+        elif isinstance(dec, ast.Attribute):
+            names.add(dec.attr)
+    return names
+
+
+def _is_protocol_or_abc_class(cls_node: ast.ClassDef) -> bool:
+    for base in cls_node.bases:
+        if isinstance(base, ast.Name) and base.id in {"Protocol", "ABC"}:
+            return True
+        if isinstance(base, ast.Attribute) and base.attr in {"Protocol", "ABC"}:
+            return True
+    return False
+
+
+def audit_python_ast(
+    source: str,
+    filepath: str,
+    changed_lines: set[int] | None = None,
+) -> list[Finding]:
+    """Run zero-dependency Python AST checks for empty stub functions and empty tests."""
+    try:
+        tree = ast.parse(source, filename=filepath)
+    except SyntaxError:
+        return []
+
+    raw_lines = source.splitlines()
+    findings: list[Finding] = []
+    test_file = is_test_file(filepath)
+
+    def line_ignored(lineno: int, end_lineno: int | None) -> bool:
+        hi = min(len(raw_lines), (end_lineno or lineno))
+        for idx in range(max(1, lineno), hi + 1):
+            if INLINE_IGNORE_RE.search(raw_lines[idx - 1]):
+                return True
+        return False
+
+    def visit_block(stmts: list[ast.stmt], inside_protocol: bool = False) -> None:
+        for node in stmts:
+            if isinstance(node, ast.ClassDef):
+                is_proto = inside_protocol or _is_protocol_or_abc_class(node)
+                visit_block(node.body, inside_protocol=is_proto)
+                continue
+
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                end_line = getattr(node, "end_lineno", node.lineno)
+                if changed_lines is not None:
+                    touched = any(ln in changed_lines for ln in range(node.lineno, (end_line or node.lineno) + 1))
+                    if not touched:
+                        continue
+
+                if line_ignored(node.lineno, end_line):
+                    continue
+
+                decs = _decorator_names(node)
+                if inside_protocol or decs.intersection({"abstractmethod", "overload"}):
+                    continue
+
+                if _is_stub_only_body(node.body):
+                    snippet = raw_lines[node.lineno - 1].strip() if 1 <= node.lineno <= len(raw_lines) else ""
+                    if test_file and node.name.startswith("test"):
+                        findings.append(
+                            Finding(
+                                severity="CRITICAL",
+                                rule="empty-test",
+                                file=filepath,
+                                line=node.lineno,
+                                message=f"Empty test function '{node.name}' has no assertions (test theater).",
+                                snippet=snippet,
+                            )
+                        )
+                    else:
+                        findings.append(
+                            Finding(
+                                severity="CRITICAL",
+                                rule="empty-stub-func",
+                                file=filepath,
+                                line=node.lineno,
+                                message=f"Function '{node.name}' body is an empty pass/... stub.",
+                                snippet=snippet,
+                            )
+                        )
+
+    visit_block(tree.body)
+    return findings
+
+
+def _collect_added_python_lines(diff_text: str, exclude_globs: Iterable[str]) -> dict[str, set[int]]:
+    """Extract added line numbers per .py file from a unified diff for targeted AST checks."""
+    py_lines: dict[str, set[int]] = {}
+    current_file: str | None = None
+    skip = False
+    new_line_no = 0
+    hunk_re = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
+    for raw_line in diff_text.splitlines():
+        if raw_line.startswith("diff --git "):
+            current_file = None
+            skip = False
+            new_line_no = 0
+            continue
+        if raw_line.startswith("+++ "):
+            target = raw_line[4:].strip()
+            if target == "/dev/null":
+                current_file = None
+                skip = True
+            else:
+                current_file = target[2:] if target.startswith("b/") else target
+                skip = language_of(current_file) != "python" or is_excluded(current_file, exclude_globs)
+            continue
+        if raw_line.startswith("--- "):
+            continue
+        hunk_match = hunk_re.match(raw_line)
+        if hunk_match:
+            new_line_no = int(hunk_match.group(1))
+            continue
+        if current_file is None or skip:
+            continue
+        if raw_line.startswith("+") and not raw_line.startswith("+++"):
+            py_lines.setdefault(current_file, set()).add(new_line_no)
+            new_line_no += 1
+        elif not raw_line.startswith("-") and not raw_line.startswith("\\"):
+            new_line_no += 1
+    return py_lines
+
+
+def audit_python_files_in_repo(
+    repo: Path,
+    diff_text: str,
+    exclude_globs: Iterable[str],
+    full_scan: bool,
+) -> list[Finding]:
+    """Run AST checks on scanned Python files present in repo."""
+    py_lines = _collect_added_python_lines(diff_text, exclude_globs)
+    ast_findings: list[Finding] = []
+    for rel_path, lines in py_lines.items():
+        full_path = repo / rel_path
+        if not full_path.is_file():
+            continue
+        try:
+            if full_path.stat().st_size > MAX_FILE_BYTES:
+                continue
+            source = full_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        ast_findings.extend(
+            audit_python_ast(source, rel_path, changed_lines=None if full_scan else lines)
+        )
+    return ast_findings
+
+
+def apply_config_rules(
+    findings: list[Finding],
+    ignored_rules: set[str],
+    severity_overrides: dict[str, str],
+) -> list[Finding]:
+    """Filter ignored rules and apply optional severity overrides."""
+    result: list[Finding] = []
+    for f in findings:
+        key = f.rule.lower()
+        if key in ignored_rules:
+            continue
+        override = severity_overrides.get(key)
+        if override in VALID_SEVERITIES:
+            result.append(
+                Finding(
+                    severity=override,
+                    rule=f.rule,
+                    file=f.file,
+                    line=f.line,
+                    message=f.message,
+                    snippet=f.snippet,
+                )
+            )
+        else:
+            result.append(f)
+    return result
 
 
 @dataclass
@@ -812,16 +1035,41 @@ def main(argv: list[str] | None = None) -> int:
         help="Rule name to ignore, e.g. swallowed-error or debug-print (repeatable).",
     )
     parser.add_argument(
+        "--config",
+        type=Path,
+        help=f"Path to JSON config file (default: <repo>/{CONFIG_FILENAME} if present).",
+    )
+    parser.add_argument(
         "--max-findings",
         type=int,
-        default=DEFAULT_MAX_FINDINGS,
+        default=None,
         help=f"Max findings printed in text output (default: {DEFAULT_MAX_FINDINGS}; 0 = unlimited).",
     )
     parser.add_argument("--json", action="store_true", help="Output findings as JSON.")
     parser.add_argument("--strict", action="store_true", help="Exit with code 2 on WARNING findings too.")
     args = parser.parse_args(argv)
 
-    exclude_globs = (*DEFAULT_EXCLUDED_GLOBS, *args.exclude)
+    try:
+        config = load_repo_config(args.repo, config_path=args.config)
+    except RuntimeError as exc:
+        print(f"no-fake-done error: {exc}", file=sys.stderr)
+        return 3
+
+    cfg_excludes = [str(p) for p in config.get("exclude", []) if isinstance(p, str)]
+    cfg_ignored = {str(r).strip().lower() for r in config.get("ignore_rules", []) if str(r).strip()}
+    cfg_severities = {
+        str(k).strip().lower(): str(v).strip().upper()
+        for k, v in config.get("severities", {}).items()
+        if isinstance(k, str) and isinstance(v, str)
+    } if isinstance(config.get("severities"), dict) else {}
+
+    max_findings = (
+        args.max_findings
+        if args.max_findings is not None
+        else int(config.get("max_findings", DEFAULT_MAX_FINDINGS))
+    )
+    strict_mode = bool(args.strict or config.get("strict", False))
+    exclude_globs = (*DEFAULT_EXCLUDED_GLOBS, *cfg_excludes, *args.exclude)
 
     try:
         if args.diff_file:
@@ -859,9 +1107,18 @@ def main(argv: list[str] | None = None) -> int:
     findings, files_scanned, lines_scanned = audit_diff_with_stats(
         diff_text, exclude_globs=exclude_globs
     )
-    ignored_rules = {r.strip().lower() for r in args.ignore_rule if r.strip()}
-    if ignored_rules:
-        findings = [f for f in findings if f.rule.lower() not in ignored_rules]
+    if not args.diff_file:
+        findings.extend(
+            audit_python_files_in_repo(
+                repo=args.repo,
+                diff_text=diff_text,
+                exclude_globs=exclude_globs,
+                full_scan=(mode == "all"),
+            )
+        )
+
+    ignored_rules = cfg_ignored | {r.strip().lower() for r in args.ignore_rule if r.strip()}
+    findings = apply_config_rules(findings, ignored_rules=ignored_rules, severity_overrides=cfg_severities)
     scope = ScanScope(
         mode=mode,
         base=base_ref,
@@ -881,11 +1138,11 @@ def main(argv: list[str] | None = None) -> int:
         }
         print(json.dumps(payload, indent=2))
     else:
-        print(format_human_report(findings, scope=scope, max_findings=args.max_findings))
+        print(format_human_report(findings, scope=scope, max_findings=max_findings))
 
     if critical_count > 0:
         return 1
-    if args.strict and warning_count > 0:
+    if strict_mode and warning_count > 0:
         return 2
     return 0
 

@@ -46,6 +46,7 @@ Additional flags:
 - `--all` — explicit alias for the default full-project scan (works on plain non-git folders too).
 - `--json` — structured JSON output including a `scope` summary (`mode`, `files_scanned`, `lines_scanned`).
 - `--ignore-rule swallowed-error` — mute a specific rule (repeatable; useful under `--strict`).
+- `--config path/to/.nofakedone.json` — load a custom config file (otherwise `<repo>/.nofakedone.json` is auto-loaded if present).
 - `--max-findings 50` — cap text output on large legacy repos (`0` = unlimited; `--json` always returns all).
 - `--strict` — fail with exit code `2` on `WARNING` findings as well as `CRITICAL`.
 - `--no-untracked` — skip scanning newly created untracked files.

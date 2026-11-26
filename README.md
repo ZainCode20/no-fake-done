@@ -6,7 +6,9 @@
 
 **Project & diff auditor skill + automatic Stop hook for AI coding agents.**
 
-Stop AI coding assistants from claiming *"Done!"* when a codebase or diff contains skipped/weakened tests (**"test theater"**), leftover `TODO` / `NotImplementedError` / `fatalError` stubs, hardcoded secrets, swallowed errors, or `@ts-ignore` / `swiftlint:disable` shortcuts.
+Stop AI coding assistants from claiming *"Done!"* when a codebase or diff contains skipped/weakened tests (**"test theater"**), empty stub functions, leftover `TODO` / `NotImplementedError` / `fatalError` stubs, hardcoded secrets, swallowed errors, or `@ts-ignore` / `swiftlint:disable` shortcuts.
+
+![no-fake-done terminal demo](assets/demo.svg)
 
 ---
 
@@ -28,6 +30,8 @@ Stop AI coding assistants from claiming *"Done!"* when a codebase or diff contai
 | `CRITICAL` | `test-skip` | `@pytest.mark.skip`, `test.skip(`, `xit(`, `throw XCTSkip(`, `@Test(.disabled)`, `@Ignore`, `t.Skip(` |
 | `CRITICAL` | `trivial-assertion` | `assert True`, `expect(true).toBe(true)`, `XCTAssertTrue(true)`, `#expect(true)` |
 | `CRITICAL` | `removed-assertions` | Net loss of `assert` / `expect(` / `XCTAssert*` / `#expect(` lines in test files *(diff modes)* |
+| `CRITICAL` | `empty-test` | Python AST: `def test_*(): pass` / `...` with zero assertions |
+| `CRITICAL` | `empty-stub-func` | Python AST: function/method body is only `pass` or `...` *(exempts `@abstractmethod`, `@overload`, `Protocol`/`ABC`)* |
 | `CRITICAL` | `placeholder-stub` | `TODO`, `FIXME`, `raise NotImplementedError`, `fatalError("Not implemented")`, `unimplemented!()` |
 | `CRITICAL` | `hardcoded-secret` | AWS keys (`AKIA...`), GitHub tokens (`ghp_...`), API keys (`sk-...`), private keys *(redacted in output)* |
 | `CRITICAL` | `debugger-leftover` | `breakpoint()`, `pdb.set_trace()`, `debugger;` |
@@ -98,7 +102,27 @@ python scripts/audit_diff.py --exclude "generated/*" --ignore-rule swallowed-err
 - `0` — Clean (no `CRITICAL` findings)
 - `1` — One or more `CRITICAL` findings detected
 - `2` — `WARNING` findings detected with `--strict`
-- `3` — Git or I/O error
+- `3` — Git, config, or I/O error
+
+---
+
+## Per-Repo Configuration (`.nofakedone.json`)
+
+Drop an optional `.nofakedone.json` in your repository root (honored by both the CLI and the automatic Stop hook):
+
+```json
+{
+  "exclude": ["generated/*", "fixtures/*"],
+  "ignore_rules": ["debug-print"],
+  "severities": {
+    "swallowed-error": "CRITICAL"
+  },
+  "max_findings": 50,
+  "strict": false
+}
+```
+
+CLI flags (`--exclude`, `--ignore-rule`, `--strict`, `--max-findings`, `--config <path>`) merge with or override `.nofakedone.json`.
 
 ---
 
