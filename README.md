@@ -128,8 +128,8 @@ CLI flags (`--exclude`, `--ignore-rule`, `--strict`, `--max-findings`, `--config
 
 ## FAQ
 
-**Why did an older version say `CLEAN` on a project that already had `TODO`s?**
-Prior to `v3.0.0`, running `audit_diff.py` without flags only checked *uncommitted changes vs `HEAD`*. Starting in `v3.0.0`, the default scans **the entire project** (`--all`), prints an explicit file/line count on every run, and reserves uncommitted-only mode for `--changed` (and the automatic Stop hook).
+**How do I audit only my uncommitted changes instead of the whole project?**
+By default, running `audit_diff.py` scans **the entire project** (`--all`) and prints an explicit file/line count on every run. Pass `--changed` to audit only uncommitted changes vs `HEAD` (which is what the automatic Stop hook uses), or `--base main` for a branch/PR diff.
 
 ---
 

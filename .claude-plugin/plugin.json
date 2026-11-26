@@ -1,6 +1,6 @@
 {
   "name": "no-fake-done",
-  "version": "3.2.0",
+  "version": "1.0.0",
   "description": "Project & git diff auditor skill and Stop hook for AI coding agents (Python, JS/TS, Swift, and more).",
   "author": {
     "name": "ZainCode20",
