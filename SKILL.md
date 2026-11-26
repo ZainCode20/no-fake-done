@@ -1,45 +1,48 @@
 ---
 name: no-fake-done
 description: >-
-  Pre-completion diff and test-integrity auditor for AI coding agents.
-  Use before declaring any code-editing task complete, or when asked to audit
-  AI-generated changes for placeholder stubs, weakened or skipped tests
-  ("test theater"), hardcoded secrets, swallowed errors, type/lint suppressions,
-  and scope creep. Do not activate for pure Q&A or documentation-only edits.
+  Project and diff auditor for AI coding agents (Python, JS/TS, Swift, and more).
+  Use before declaring any code-editing task complete, or when asked to audit a
+  project, repository, or pull request for placeholder stubs, weakened or skipped
+  tests ("test theater"), hardcoded secrets, swallowed errors, and linter/type
+  suppressions. Do not activate for pure Q&A or documentation-only edits.
 ---
 
 # No Fake Done
 
-Run this skill **before** declaring a code-editing task complete. It pairs a
-deterministic diff auditor ([audit_diff.py](./scripts/audit_diff.py)) with a
-short semantic checklist ([checklist.md](./references/checklist.md)) so stubs,
-weakened tests, and unrequested edits never slip into the final response.
+Pairs a deterministic code & diff auditor ([audit_diff.py](./scripts/audit_diff.py))
+with a concise semantic checklist ([checklist.md](./references/checklist.md)) so
+stubs, weakened tests, and hidden shortcuts never slip into a codebase or final
+response.
 
 ---
 
 ## When to Use (and When Not to)
 
-- **Use** after modifying or creating source/test files, right before running
-  your final summary for the user.
-- **Skip** for pure conceptual Q&A, read-only codebase research, or
+- **Use** when auditing an existing project/repository, reviewing a branch/PR,
+  or finishing your own code-editing task.
+- **Skip** for pure conceptual Q&A, read-only architecture explanations, or
   documentation-only edits (`.md`, `.txt`, `.rst` are excluded by default).
 
 ---
 
 ## Workflow
 
-### 1. Run the Deterministic Diff Audit
+### 1. Pick the Right Scope & Run the Audit
 
-Execute [audit_diff.py](./scripts/audit_diff.py) from the **skill directory**,
-pointing `--repo` at the user's git repository (Python 3.10+, zero external
-dependencies):
+Execute [audit_diff.py](./scripts/audit_diff.py) pointing `--repo` at the target
+project (Python 3.10+, zero external dependencies):
 
-```bash
-python <skill_dir>/scripts/audit_diff.py --repo <project_root> --json
-```
+| Scenario | Command |
+| :--- | :--- |
+| **User asks to audit/check a project or repo** *(default)* | `python <skill_dir>/scripts/audit_diff.py --repo <project_root>` |
+| **Finishing your own uncommitted coding task** | `python <skill_dir>/scripts/audit_diff.py --repo <project_root> --changed` |
+| **Auditing a branch / PR (or after committing along the way)** | `python <skill_dir>/scripts/audit_diff.py --repo <project_root> --base main` |
 
-Useful flags:
-- `--base main` — audit against a base branch or commit instead of `HEAD`.
+Additional flags:
+- `--all` — explicit alias for the default full-project scan (works on plain non-git folders too).
+- `--json` — structured JSON output including a `scope` summary (`mode`, `files_scanned`, `lines_scanned`).
+- `--max-findings 50` — cap text output on large legacy repos (`0` = unlimited; `--json` always returns all).
 - `--strict` — fail with exit code `2` on `WARNING` findings as well as `CRITICAL`.
 - `--no-untracked` — skip scanning newly created untracked files.
 - `--exclude "generated/*"` — exclude additional file globs (repeatable).
@@ -50,12 +53,16 @@ Exit codes: `0` = clean, `1` = `CRITICAL` findings, `2` = `WARNING` with
 
 ### 2. Resolve Every `CRITICAL` Finding
 
-Never report a task as complete while any `CRITICAL` finding remains:
+When finishing your own coding task, never declare victory while any `CRITICAL`
+finding remains in your changes:
 - **Test Theater (`test-skip`, `trivial-assertion`, `removed-assertions`):**
-  Restore deleted assertions, remove skip decorators, and replace tautologies
-  (`assert True`, `expect(true).toBe(true)`) with real behavioral checks.
+  Restore deleted assertions, remove skip markers (`@pytest.mark.skip`,
+  `test.skip`, `throw XCTSkip`, `@Test(.disabled)`), and replace tautologies
+  (`assert True`, `expect(true).toBe(true)`, `XCTAssertTrue(true)`, `#expect(true)`)
+  with real behavioral assertions.
 - **Placeholder Stubs (`placeholder-stub`):**
-  Implement the missing logic or remove dead `TODO`/`FIXME`/`NotImplementedError`.
+  Implement missing logic or remove dead `TODO`/`FIXME`/`NotImplementedError`/
+  `fatalError("Not implemented")` stubs.
 - **Hardcoded Secrets (`hardcoded-secret`):**
   Remove credentials/keys immediately and load them from environment variables.
 - **Debug Leftovers (`debugger-leftover`):**
@@ -63,22 +70,24 @@ Never report a task as complete while any `CRITICAL` finding remains:
 
 ### 3. Review `WARNING` Findings & Semantic Checklist
 
-Inspect all `WARNING` findings (`swallowed-error`, `lint-type-suppression`,
-`debug-print`, `commented-code-block`). Fix unintentional issues; if a line is
-genuinely intentional (e.g., an intentional empty catch or fixture), append an
-inline suppression with a reason:
+Inspect `WARNING` findings (`swallowed-error` including `except: pass`, empty
+`catch {}`, discarded `try?`, and `try!`; `lint-type-suppression` including
+`@ts-ignore`, `# type: ignore`, and `// swiftlint:disable`; `debug-print`; and
+`commented-code-block`). If a line is genuinely intentional, add an inline
+suppression with a reason:
 
 ```python
 except KeyError:  # no-fake-done: ignore -- optional cache key
 ```
 
 Then read [references/checklist.md](./references/checklist.md) to verify
-architectural integrity that regex cannot catch.
+architectural integrity that static pattern matching cannot catch.
 
-### 4. Re-Run & Report
+### 4. Re-Run & Quote the Scope Summary
 
 After your final edit:
 1. Re-run the project's relevant test suite.
-2. Re-run `audit_diff.py` and confirm exit code `0` (`CLEAN`).
-3. Include a brief **Verification** line in your final reply stating both the
-   observed test result and `no-fake-done: CLEAN`.
+2. Re-run `audit_diff.py` (with `--changed` or `--base` for your own edits, or
+   default `--all` for full-project audits).
+3. Always quote the **scope summary** (e.g., `scanned 6 file(s) (+142 lines) [diff vs HEAD]`)
+   alongside the observed test result so the user knows exactly what was checked.

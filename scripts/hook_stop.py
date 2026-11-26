@@ -50,6 +50,8 @@ def evaluate_stop_hook(payload: dict, mode: str) -> dict:
         if payload.get("stop_hook_active"):
             return {}
 
+    # Intentionally audit only uncommitted + untracked edits (--changed scope)
+    # so legacy TODOs already committed in large repos never block agent turns.
     repo = _resolve_repo_path(payload)
     try:
         diff_text = audit_diff._run_git_diff(base=None, repo=repo, include_untracked=True)

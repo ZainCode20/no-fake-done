@@ -1,7 +1,7 @@
 {
   "name": "no-fake-done",
-  "version": "2.1.0",
-  "description": "Pre-completion git diff & test-integrity auditor skill and Stop hook for AI coding agents.",
+  "version": "3.0.0",
+  "description": "Project & git diff auditor skill and Stop hook for AI coding agents (Python, JS/TS, Swift, and more).",
   "author": {
     "name": "ZainCode20",
     "url": "https://github.com/ZainCode20"
@@ -15,6 +15,7 @@
     "code-review",
     "git-diff",
     "testing",
+    "swift",
     "no-fake-done"
   ]
 }
