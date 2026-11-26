@@ -37,8 +37,10 @@ Stop AI coding assistants from claiming *"Done!"* when a codebase or diff contai
 | `WARNING` | `commented-code-block` | 3+ consecutive lines of commented-out code |
 
 - **Full-project scan by default** (works on committed repos and plain non-git folders alike), plus `--changed` and `--base main` for targeted diff checks.
+- **5-Angle Verification Protocol:** pairs static diff checks with [`references/verification-angles.md`](references/verification-angles.md) so agents also verify **build/typecheck**, **automated tests**, **runtime happy + edge-case smoke tests**, and **git scope** before claiming "Done!".
+- **Audit Only vs. Audit & Fix:** Ask your agent *"Run `no-fake-done` on this repo"* for a read-only audit, or *"Run `no-fake-done` and fix all findings"* to have the agent resolve every issue and re-verify until clean.
 - **Skips docs, lockfiles & vendor dirs** (`.md`, `.txt`, `Pods/`, `DerivedData/`, `.build/`, `node_modules/`, lockfiles, etc.) automatically.
-- **Inline escape hatch:** add `# no-fake-done: ignore` (or `// no-fake-done: ignore`) on intentionally excluded lines.
+- **Inline escape hatch & rule muting:** add `# no-fake-done: ignore` on intentional lines, or pass `--ignore-rule swallowed-error` to mute a specific rule.
 - **Semantic checklist:** pairs with [`references/checklist.md`](references/checklist.md) for catching *"adding instead of replacing"* workarounds and scope creep.
 
 ---
@@ -88,8 +90,8 @@ python scripts/audit_diff.py --json
 # Fail on warnings too (exit code 2)
 python scripts/audit_diff.py --strict
 
-# Exclude custom paths or show unlimited findings
-python scripts/audit_diff.py --exclude "generated/*" --max-findings 0
+# Exclude custom paths, mute a rule, or show unlimited findings
+python scripts/audit_diff.py --exclude "generated/*" --ignore-rule swallowed-error --max-findings 0
 ```
 
 ### Exit Codes

@@ -1,34 +1,37 @@
 ---
 name: no-fake-done
 description: >-
-  Project and diff auditor for AI coding agents (Python, JS/TS, Swift, and more).
-  Use before declaring any code-editing task complete, or when asked to audit a
-  project, repository, or pull request for placeholder stubs, weakened or skipped
-  tests ("test theater"), hardcoded secrets, swallowed errors, and linter/type
-  suppressions. Do not activate for pure Q&A or documentation-only edits.
+  Multi-angle project & diff auditor for AI coding agents (Python, JS/TS, Swift,
+  and more). Use before declaring any code-editing task complete, or when asked
+  to audit, verify, or fix an app/repository for skipped tests ("test theater"),
+  placeholder stubs, hardcoded secrets, swallowed errors, build/runtime failures,
+  and scope creep. Do not activate for pure Q&A or documentation-only edits.
 ---
 
 # No Fake Done
 
 Pairs a deterministic code & diff auditor ([audit_diff.py](./scripts/audit_diff.py))
-with a concise semantic checklist ([checklist.md](./references/checklist.md)) so
-stubs, weakened tests, and hidden shortcuts never slip into a codebase or final
-response.
+with a **5-Angle Verification Protocol** ([verification-angles.md](./references/verification-angles.md))
+and semantic checklist ([checklist.md](./references/checklist.md)) so AI agents
+verify an app thoroughly—and resolve real issues—before saying "Done!".
 
 ---
 
-## When to Use (and When Not to)
+## Modes: Audit Only vs. Audit & Fix
 
-- **Use** when auditing an existing project/repository, reviewing a branch/PR,
-  or finishing your own code-editing task.
-- **Skip** for pure conceptual Q&A, read-only architecture explanations, or
-  documentation-only edits (`.md`, `.txt`, `.rst` are excluded by default).
+- **Audit Only** *(when the user asks to "check", "audit", or "review" a repo)*:
+  Run the audit + applicable verification angles and report findings **without**
+  editing the user's code unless asked.
+- **Audit & Fix** *(when finishing your own coding task, or when the user asks
+  to "audit and fix" / "make sure this app is fine")*:
+  Fix every `CRITICAL` finding (and any actionable `WARNING`s or failing checks),
+  then re-run until clean.
 
 ---
 
 ## Workflow
 
-### 1. Pick the Right Scope & Run the Audit
+### 1. Pick the Right Scope & Run the Static Audit
 
 Execute [audit_diff.py](./scripts/audit_diff.py) pointing `--repo` at the target
 project (Python 3.10+, zero external dependencies):
@@ -42,6 +45,7 @@ project (Python 3.10+, zero external dependencies):
 Additional flags:
 - `--all` — explicit alias for the default full-project scan (works on plain non-git folders too).
 - `--json` — structured JSON output including a `scope` summary (`mode`, `files_scanned`, `lines_scanned`).
+- `--ignore-rule swallowed-error` — mute a specific rule (repeatable; useful under `--strict`).
 - `--max-findings 50` — cap text output on large legacy repos (`0` = unlimited; `--json` always returns all).
 - `--strict` — fail with exit code `2` on `WARNING` findings as well as `CRITICAL`.
 - `--no-untracked` — skip scanning newly created untracked files.
@@ -51,10 +55,9 @@ Additional flags:
 Exit codes: `0` = clean, `1` = `CRITICAL` findings, `2` = `WARNING` with
 `--strict`, `3` = git/IO error.
 
-### 2. Resolve Every `CRITICAL` Finding
+### 2. Resolve Every `CRITICAL` Finding (in Audit & Fix Mode)
 
-When finishing your own coding task, never declare victory while any `CRITICAL`
-finding remains in your changes:
+Never report a task as complete while any `CRITICAL` finding remains in your changes:
 - **Test Theater (`test-skip`, `trivial-assertion`, `removed-assertions`):**
   Restore deleted assertions, remove skip markers (`@pytest.mark.skip`,
   `test.skip`, `throw XCTSkip`, `@Test(.disabled)`), and replace tautologies
@@ -70,24 +73,25 @@ finding remains in your changes:
 
 ### 3. Review `WARNING` Findings & Semantic Checklist
 
-Inspect `WARNING` findings (`swallowed-error` including `except: pass`, empty
-`catch {}`, discarded `try?`, and `try!`; `lint-type-suppression` including
-`@ts-ignore`, `# type: ignore`, and `// swiftlint:disable`; `debug-print`; and
-`commented-code-block`). If a line is genuinely intentional, add an inline
-suppression with a reason:
+Inspect `WARNING` findings (`swallowed-error`, `lint-type-suppression`,
+`debug-print`, `commented-code-block`). If a line is genuinely intentional, add
+an inline suppression with a reason:
 
 ```python
 except KeyError:  # no-fake-done: ignore -- optional cache key
 ```
 
-Then read [references/checklist.md](./references/checklist.md) to verify
-architectural integrity that static pattern matching cannot catch.
+Read [references/checklist.md](./references/checklist.md) for architectural drift
+checks ("adding instead of replacing", "80% complete" traps).
 
-### 4. Re-Run & Quote the Scope Summary
+### 4. Verify from All 5 Angles & Report Honestly
 
-After your final edit:
-1. Re-run the project's relevant test suite.
-2. Re-run `audit_diff.py` (with `--changed` or `--base` for your own edits, or
-   default `--all` for full-project audits).
-3. Always quote the **scope summary** (e.g., `scanned 6 file(s) (+142 lines) [diff vs HEAD]`)
-   alongside the observed test result so the user knows exactly what was checked.
+Before concluding, follow [references/verification-angles.md](./references/verification-angles.md)
+to test the app from multiple angles:
+1. **Static Audit:** Re-run `audit_diff.py` after the final edit and quote the
+   exact scope summary (`scanned N file(s) (+M lines)`).
+2. **Build / Typecheck:** Verify compilation/types (or report OS/SDK blockers honestly).
+3. **Automated Tests:** Run the real test suite after the final edit.
+4. **Runtime Smoke Test:** Execute the app/CLI with both a valid happy-path input
+   and an invalid/edge-case input.
+5. **Scope & Git Status:** Confirm `git diff --stat` has no unintended changes.

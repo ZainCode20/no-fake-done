@@ -806,6 +806,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Additional file glob to exclude (repeatable).",
     )
     parser.add_argument(
+        "--ignore-rule",
+        action="append",
+        default=[],
+        help="Rule name to ignore, e.g. swallowed-error or debug-print (repeatable).",
+    )
+    parser.add_argument(
         "--max-findings",
         type=int,
         default=DEFAULT_MAX_FINDINGS,
@@ -853,6 +859,9 @@ def main(argv: list[str] | None = None) -> int:
     findings, files_scanned, lines_scanned = audit_diff_with_stats(
         diff_text, exclude_globs=exclude_globs
     )
+    ignored_rules = {r.strip().lower() for r in args.ignore_rule if r.strip()}
+    if ignored_rules:
+        findings = [f for f in findings if f.rule.lower() not in ignored_rules]
     scope = ScanScope(
         mode=mode,
         base=base_ref,

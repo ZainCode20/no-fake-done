@@ -193,6 +193,43 @@ diff --git a/src/cache.py b/src/cache.py
             with patch("sys.stderr", StringIO()):
                 self.assertEqual(audit_diff.main(["--diff-file", str(Path(tmp) / "missing.diff")]), 3)
 
+    def test_ignore_rule_mutes_selected_rules(self) -> None:
+        swift_diff = """diff --git a/Sources/Sync.swift b/Sources/Sync.swift
+--- a/Sources/Sync.swift
++++ b/Sources/Sync.swift
+@@ -1 +1,3 @@
+ func sync() {
++    _ = try? flush()
++    print("debug")
+ }
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            diff_path = Path(tmp) / "swift.diff"
+            diff_path.write_text(swift_diff, encoding="utf-8")
+
+            stdout = StringIO()
+            with patch("sys.stdout", stdout):
+                code = audit_diff.main(
+                    ["--diff-file", str(diff_path), "--strict", "--ignore-rule", "swallowed-error", "--json"]
+                )
+            self.assertEqual(code, 2)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual([f["rule"] for f in payload["findings"]], ["debug-print"])
+
+            with patch("sys.stdout", StringIO()):
+                code_clean = audit_diff.main(
+                    [
+                        "--diff-file",
+                        str(diff_path),
+                        "--strict",
+                        "--ignore-rule",
+                        "swallowed-error",
+                        "--ignore-rule",
+                        "debug-print",
+                    ]
+                )
+            self.assertEqual(code_clean, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
